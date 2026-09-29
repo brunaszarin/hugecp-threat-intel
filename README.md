@@ -60,6 +60,18 @@ cd backend
 uv run python -m app.ingest --flows /caminho/flows.csv --indicators /caminho/indicadores.csv
 ```
 
+## API
+
+Com a API rodando (`make api`), a documentação interativa fica em http://localhost:8000/docs.
+Todos os endpoints aceitam `from` e `to` (ISO 8601, UTC); sem eles, vale o período inteiro dos dados.
+
+| Endpoint | O que devolve |
+| --- | --- |
+| `GET /api/overview/summary` | Totais de bytes, pacotes, flows, origens e destinos, e o tráfego vindo de indicadores |
+| `GET /api/overview/timeseries` | Bytes, pacotes e flows por intervalo (`bucket` em segundos; automático se omitido) |
+| `GET /api/overview/protocols` | Distribuição por protocolo |
+| `GET /api/overview/top-ports` | Portas de destino mais procuradas (`limit`, `order_by=flows\|bytes`) |
+
 ## Testes
 
 ```bash

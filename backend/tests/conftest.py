@@ -5,8 +5,12 @@ from pathlib import Path
 
 import psycopg
 import pytest
+from fastapi.testclient import TestClient
 
+from app.api.deps import get_conn
 from app.core.config import settings
+from app.ingest.loader import run_ingest
+from app.main import app
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -32,3 +36,16 @@ def db_conn() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
     finally:
         with psycopg.connect(url, autocommit=True) as admin:
             admin.execute(f"DROP SCHEMA {schema} CASCADE")
+
+
+@pytest.fixture
+def client(
+    db_conn: psycopg.Connection[tuple[object, ...]], fixtures_dir: Path
+) -> Iterator[TestClient]:
+    """Cliente HTTP da API usando o schema isolado, já carregado com as fixtures."""
+    run_ingest(db_conn, fixtures_dir / "flows.csv", fixtures_dir / "indicadores.csv")
+    app.dependency_overrides[get_conn] = lambda: db_conn
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
