@@ -12,8 +12,8 @@ Cada decisão relevante de arquitetura ou modelagem fica registrada aqui, com co
 
 - **Decisão:** PostgreSQL 17 via Docker Compose.
 - **Motivo:** tipo `inet` nativo para IPs, índices compostos, `date_bin` para agrupar por tempo e `COPY` para carga rápida. Sobe com um comando na máquina de quem avalia.
-- **Alternativas:** DuckDB (colunar e sem servidor, ótimo para agregação; descartado para manter um banco transacional "de mercado" e facilitar a discussão sobre índices); ClickHouse (faria sentido com bilhões de linhas, é excessivo para 80 mil).
 - **Porta 5433 no host:** o container expõe o PostgreSQL na 5433 para não conflitar com um PostgreSQL instalado localmente na máquina de quem roda o projeto.
+- **Alternativas:** DuckDB (colunar e sem servidor, ótimo para agregação; descartado para manter um banco transacional "de mercado" e facilitar a discussão sobre índices); ClickHouse (faria sentido com bilhões de linhas, é excessivo para 80 mil).
 
 ## 003 — Modelo de dados
 
@@ -37,3 +37,13 @@ Cada decisão relevante de arquitetura ou modelagem fica registrada aqui, com co
 - **Decisão:** uma origem aciona o critério se o IP estiver em `indicators`, independentemente de `first_seen` e `last_seen`.
 - **Motivo:** é a leitura literal do enunciado. Na exploração, 33 dos 34 indicadores presentes no tráfego têm `last_seen` anterior ao início do período; exigir que o flow caísse na janela do feed praticamente eliminaria o critério.
 - **Consequência na interface:** o `last_seen` do indicador aparece na lista e na ficha, para o analista avaliar se a informação está desatualizada.
+
+## 006 — API do panorama
+
+- **Filtro de período comum:** todos os endpoints aceitam `from` (inclusivo) e `to` (exclusivo) em ISO 8601. Sem eles, vale o período coberto pelos dados. Datas sem fuso são tratadas como UTC, o fuso dos timestamps do CSV. Cada resposta devolve o período efetivamente usado.
+- **Série temporal com bytes, pacotes e flows juntos:** o custo está na varredura e no agrupamento, não no payload; somar as três métricas no mesmo `GROUP BY` custa o mesmo que somar uma. Uma única resposta mantém as métricas consistentes entre si e permite trocar a métrica na tela sem nova requisição. Um parâmetro para escolher métricas só seria adicionado se surgissem métricas que a tela não usa sempre.
+- **Granularidade automática:** o backend escolhe o menor intervalo "redondo" (1 s, 5 s, … 2 min, 5 min, …) que mantém a série em até ~200 pontos, e devolve `bucket_seconds` para o frontend rotular o eixo. O parâmetro `bucket` força um intervalo, limitado a 5.000 pontos por resposta.
+- **Intervalos vazios viram zero:** os intervalos são gerados com `generate_series` e cruzados com `LEFT JOIN`; sem isso, o gráfico ligaria pontos distantes com uma reta e esconderia períodos sem tráfego.
+- **Sem conversão para taxa (bps/pps):** os bytes são de amostras e a taxa de amostragem é desconhecida, então qualquer taxa seria um número inventado. A tela mostra o total amostrado por intervalo.
+- **Top portas sem ICMP:** ICMP não tem portas e vem com `dst_port = 0`; incluí-lo faria a "porta 0" aparecer como um serviço procurado. A ordenação padrão é por quantidade de flows ("mais procuradas"), com opção de ordenar por bytes.
+- **Pool de conexões com timeout de 5 s:** se o banco estiver fora do ar, a API responde erro rapidamente em vez de segurar a requisição por 30 s.
