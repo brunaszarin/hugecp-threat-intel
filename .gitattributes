@@ -1,1 +1,3 @@
 * text=auto eol=lf
+# Fixtures mantêm o \r\n original dos CSVs fornecidos, para os testes cobrirem esse formato
+backend/tests/fixtures/*.csv -text

@@ -28,7 +28,7 @@ make db-up
 make setup
 
 # 3. Popule o banco (idempotente: pode rodar quantas vezes quiser)
-# _a definir_
+make ingest
 
 # 4. Rode backend e frontend (em terminais separados)
 make api   # http://localhost:8000/docs
@@ -45,6 +45,30 @@ make web   # http://localhost:5173
 ├── docs/             # Registro de decisões
 └── docker-compose.yml
 ```
+
+## Ingestão
+
+`make ingest` lê `data/flows.csv` e `data/indicadores.csv`, cria o schema se ele
+ainda não existir e recarrega todas as tabelas dentro de **uma única transação**.
+Rodar duas vezes produz exatamente o mesmo estado, sem duplicar dados. Se algo
+falhar no meio, nada é gravado e os dados anteriores continuam intactos.
+
+Para usar arquivos em outro lugar:
+
+```bash
+cd backend
+uv run python -m app.ingest --flows /caminho/flows.csv --indicators /caminho/indicadores.csv
+```
+
+## Testes
+
+```bash
+make db-up   # os testes de integração usam o PostgreSQL
+make test
+```
+
+Cada teste de integração roda num schema temporário, criado e apagado
+automaticamente, então os testes nunca apagam os dados carregados pelo `make ingest`.
 
 ## Decisões
 
