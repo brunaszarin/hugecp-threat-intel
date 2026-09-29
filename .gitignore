@@ -2,6 +2,8 @@
 data/*
 !data/.gitkeep
 *.csv
+# Fixtures pequenas dos testes são versionadas
+!backend/tests/fixtures/*.csv
 
 # Python
 __pycache__/

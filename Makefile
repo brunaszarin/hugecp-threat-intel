@@ -1,4 +1,4 @@
-.PHONY: help setup db-up db-down api web test lint format
+.PHONY: help setup db-up db-down ingest api web test lint format
 
 help: ## Lista os comandos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-10s %s\n", $$1, $$2}'
@@ -13,13 +13,16 @@ db-up: ## Sobe o PostgreSQL
 db-down: ## Derruba o PostgreSQL
 	docker compose down
 
+ingest: ## Carrega data/flows.csv e data/indicadores.csv no banco (idempotente)
+	cd backend && uv run python -m app.ingest --data-dir ../data
+
 api: ## Roda a API em modo desenvolvimento
 	cd backend && uv run uvicorn app.main:app --reload
 
 web: ## Roda o frontend em modo desenvolvimento
 	cd frontend && npm run dev
 
-test: ## Roda todos os testes
+test: ## Roda todos os testes (o backend precisa do banco: make db-up)
 	cd backend && uv run pytest
 	cd frontend && npm test
 
