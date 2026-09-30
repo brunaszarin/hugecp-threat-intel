@@ -3,10 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
-class PeriodOut(BaseModel):
-    start: datetime = Field(serialization_alias="from")
-    end: datetime = Field(serialization_alias="to")
+from app.schemas.common import PeriodOut
 
 
 class IndicatorTraffic(BaseModel):
