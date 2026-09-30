@@ -71,6 +71,16 @@ Todos os endpoints aceitam `from` e `to` (ISO 8601, UTC); sem eles, vale o perí
 | `GET /api/overview/timeseries` | Bytes, pacotes e flows por intervalo (`bucket` em segundos; automático se omitido) |
 | `GET /api/overview/protocols` | Distribuição por protocolo |
 | `GET /api/overview/top-ports` | Portas de destino mais procuradas (`limit`, `order_by=flows\|bytes`) |
+| `GET /api/origins` | Origens que acionaram algum critério (`criteria`, `sort`, `order`, `page`, `page_size`) |
+| `GET /api/origins/{ip}` | Ficha: identificação, indicador, estatísticas e critérios no período |
+| `GET /api/origins/{ip}/timeseries` | Atividade da origem ao longo do tempo |
+| `GET /api/origins/{ip}/destinations` | IPs protegidos atingidos e tráfego para cada um (paginado) |
+| `GET /api/origins/{ip}/ports` | Portas procuradas (porta + protocolo) e em quantos flows (paginado) |
+| `GET /api/origins/{ip}/flows` | Flows da origem (`sort=ts\|bytes\|packets`, paginado) |
+
+Critérios da lista de origens: `indicator` (está na lista de indicadores), `many_destinations`
+(mais de 20 IPs protegidos distintos), `many_ports` (mais de 50 portas distintas no mesmo IP
+protegido) e `top_bytes` (entre as 20 que mais enviaram bytes).
 
 ## Testes
 

@@ -1,6 +1,7 @@
 """Consultas do panorama. Toda agregação acontece no banco."""
 
 import math
+from ipaddress import IPv4Address
 from typing import Any, Literal
 
 import psycopg
@@ -58,12 +59,17 @@ def summary(conn: Conn, time_range: TimeRange) -> dict[str, Any]:
     return row
 
 
-def timeseries(conn: Conn, time_range: TimeRange, bucket_seconds: int) -> list[dict[str, Any]]:
+def timeseries(
+    conn: Conn, time_range: TimeRange, bucket_seconds: int, src_ip: IPv4Address | None = None
+) -> list[dict[str, Any]]:
+    """Série do período inteiro ou, com `src_ip`, de uma única origem."""
+    # O filtro é um trecho fixo de SQL; o valor do IP vai sempre como parâmetro.
+    src_filter = "AND src_ip = %(src_ip)s" if src_ip is not None else ""
     # Gera todos os intervalos do período e faz LEFT JOIN com os agregados, para que
     # intervalos sem tráfego apareçam como zero em vez de sumirem do gráfico.
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """
+            f"""
             WITH buckets AS (
                 SELECT %(start)s::timestamptz + make_interval(secs => i * %(step)s) AS ts
                 FROM generate_series(0, %(n)s - 1) AS i
@@ -75,7 +81,7 @@ def timeseries(conn: Conn, time_range: TimeRange, bucket_seconds: int) -> list[d
                        sum(packets)::bigint AS packets,
                        count(*)             AS flows
                 FROM flows
-                WHERE ts >= %(start)s AND ts < %(end)s
+                WHERE ts >= %(start)s AND ts < %(end)s {src_filter}
                 GROUP BY 1
             )
             SELECT b.ts,
@@ -90,6 +96,7 @@ def timeseries(conn: Conn, time_range: TimeRange, bucket_seconds: int) -> list[d
                 **time_range.params(),
                 "step": bucket_seconds,
                 "n": bucket_count(time_range, bucket_seconds),
+                "src_ip": src_ip,
             },
         )
         return cur.fetchall()

@@ -1,13 +1,12 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
-from app.api.deps import DbConn, Period
+from app.api.deps import DbConn, Period, period_out, resolve_bucket
 from app.repositories import overview as repo
 from app.schemas.overview import (
     IndicatorTraffic,
     OverviewSummary,
-    PeriodOut,
     PortStat,
     ProtocolBreakdown,
     ProtocolStat,
@@ -19,17 +18,13 @@ from app.schemas.overview import (
 router = APIRouter(prefix="/overview", tags=["overview"])
 
 
-def _period(period: Period) -> PeriodOut:
-    return PeriodOut(start=period.start, end=period.end)
-
-
 @router.get("/summary", response_model_by_alias=True)
 def get_summary(conn: DbConn, period: Period) -> OverviewSummary:
     """Totais do período e o tráfego vindo de origens que estão na lista de indicadores."""
     row = repo.summary(conn, period)
     total = row["bytes"]
     return OverviewSummary(
-        period=_period(period),
+        period=period_out(period),
         bytes=total,
         packets=row["packets"],
         flows=row["flows"],
@@ -55,15 +50,10 @@ def get_timeseries(
     ] = None,
 ) -> Timeseries:
     """Bytes, pacotes e flows por intervalo de tempo, com intervalos vazios preenchidos."""
-    bucket_seconds = bucket or repo.auto_bucket_seconds(period)
-    if repo.bucket_count(period, bucket_seconds) > repo.MAX_POINTS:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Intervalo pequeno demais para o período: máximo de {repo.MAX_POINTS} pontos.",
-        )
+    bucket_seconds = resolve_bucket(period, bucket)
     rows = repo.timeseries(conn, period, bucket_seconds)
     return Timeseries(
-        period=_period(period),
+        period=period_out(period),
         bucket_seconds=bucket_seconds,
         points=[TimeseriesPoint(**row) for row in rows],
     )
@@ -73,7 +63,7 @@ def get_timeseries(
 def get_protocols(conn: DbConn, period: Period) -> ProtocolBreakdown:
     """Distribuição do tráfego por protocolo."""
     rows = repo.protocols(conn, period)
-    return ProtocolBreakdown(period=_period(period), items=[ProtocolStat(**row) for row in rows])
+    return ProtocolBreakdown(period=period_out(period), items=[ProtocolStat(**row) for row in rows])
 
 
 @router.get("/top-ports", response_model_by_alias=True)
@@ -86,5 +76,5 @@ def get_top_ports(
     """Portas de destino mais procuradas (ICMP fica de fora por não ter portas)."""
     rows = repo.top_ports(conn, period, limit, order_by)
     return TopPorts(
-        period=_period(period), order_by=order_by, items=[PortStat(**row) for row in rows]
+        period=period_out(period), order_by=order_by, items=[PortStat(**row) for row in rows]
     )

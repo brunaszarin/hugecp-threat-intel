@@ -47,3 +47,16 @@ Cada decisão relevante de arquitetura ou modelagem fica registrada aqui, com co
 - **Sem conversão para taxa (bps/pps):** os bytes são de amostras e a taxa de amostragem é desconhecida, então qualquer taxa seria um número inventado. A tela mostra o total amostrado por intervalo.
 - **Top portas sem ICMP:** ICMP não tem portas e vem com `dst_port = 0`; incluí-lo faria a "porta 0" aparecer como um serviço procurado. A ordenação padrão é por quantidade de flows ("mais procuradas"), com opção de ordenar por bytes.
 - **Pool de conexões com timeout de 5 s:** se o banco estiver fora do ar, a API responde erro rapidamente em vez de segurar a requisição por 30 s.
+
+## 007 — Origens: lista (B) e ficha (C)
+
+- **Critérios calculados dentro do período filtrado**, inclusive o "top 20 em bytes": ao recortar a janela, o ranking é refeito só com o tráfego dela. Uma origem sem tráfego na janela não entra na lista.
+- **Limiares estritos:** "mais de 20" e "mais de 50" são `>`; os testes cobrem exatamente 20/21 destinos e 50/51 portas.
+- **Portas por destino:** o critério usa o maior número de portas distintas que a origem procurou num mesmo IP protegido, não a soma entre destinos. ICMP fica fora de todas as contagens de portas.
+- **Empate no top 20:** `rank()` inclui todos os empatados na 20ª posição, em vez de escolher um arbitrariamente. Nos dados fornecidos não há empate.
+- **Nomes neutros para os critérios** (`indicator`, `many_destinations`, `many_ports`, `top_bytes`): descrevem o que foi observado, sem afirmar que houve varredura ou ataque, já que o enunciado pede para não criar detecção.
+- **Uma CTE compartilhada** calcula as estatísticas e os critérios de todas as origens; a lista, as contagens por critério e a ficha partem dela. O top 20 depende do conjunto inteiro, então a ficha de um IP também precisa passar por ela.
+- **Filtro, ordenação e paginação no banco.** Ordenação só por colunas de uma lista fechada (validada pela API), nunca por texto livre. As contagens por critério (`criteria_counts`) ignoram o filtro aplicado, para a tela mostrar quantas origens existem em cada critério.
+- **Ficha em endpoints separados** (identificação, atividade, destinos, portas, flows): cada bloco da tela carrega de forma independente e só os flows precisam de paginação pesada.
+- **A ficha aceita qualquer origem presente nos dados**, mesmo sem critério acionado, porque o analista pode querer investigar um IP fora da lista. IP inexistente devolve 404; IP inválido, 422.
+- **Portas da ficha agrupadas por porta e protocolo:** 53/UDP e 53/TCP são serviços diferentes.
